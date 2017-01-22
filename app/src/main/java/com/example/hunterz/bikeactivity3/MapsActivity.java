@@ -114,7 +114,7 @@ public class MapsActivity extends FragmentActivity implements LocationListener, 
 
     public void onLocationChanged(Location location){
         LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
-        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(latLng,10);
+        CameraUpdate cameraUpdate = CameraUpdateFactory.newLatLngZoom(latLng,18);
         mMap.animateCamera(cameraUpdate);
         locationManager.removeUpdates(this);
 
