@@ -1,0 +1,60 @@
+<LinearLayout xmlns:map="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation='vertical'>
+
+    <!--<EditText-->
+        <!--android:layout_width="299dp"-->
+        <!--android:layout_height="wrap_content"-->
+        <!--android:id="@+id/currentLocation"-->
+        <!--android:text="Current Location" />-->
+
+
+    <fragment
+        android:id="@+id/map"
+        android:name="com.google.android.gms.maps.SupportMapFragment"
+        android:layout_width="384dp"
+        android:layout_height="405dp"
+        tools:context="com.example.hunterz.bikeactivity3.MapsActivity" />
+
+    <ImageView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        map:srcCompat="@mipmap/ic_launcher"
+        android:visibility = 'invisible'
+        android:id="@+id/bikeView" />
+
+    <TextView
+        android:layout_width="383dp"
+        android:layout_height="53dp"
+        android:id="@+id/start_message"
+        android:text="Please attach your mod..."
+        android:orientation='vertical'
+        android:visibility = 'invisible'
+        android:textSize="30dp"
+        android:autoText="false"
+        android:clickable="false" />
+
+    <TextView
+        android:layout_width="383dp"
+        android:layout_height="53dp"
+        android:id="@+id/speed"
+        android:text="Speed"
+        android:orientation='vertical'
+        android:textSize="30dp"
+        android:autoText="false"
+        android:clickable="false" />
+
+
+    <Button
+        android:text="GO"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/search"
+        android:onClick="onSearch" />
+
+
+
+</LinearLayout>
