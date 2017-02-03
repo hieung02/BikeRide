@@ -1,13 +1,20 @@
 package com.example.hunterz.bikeactivity3;
 
 import android.content.Context;
+import android.content.DialogInterface;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
+import android.support.v7.app.AlertDialog;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import android.location.Location;
 import android.location.LocationListener;
@@ -44,6 +51,14 @@ public class MapsActivity extends FragmentActivity implements LocationListener, 
     private TextView start_messageTV;
     private static final int RAW_PERMISSION_REQUEST_CODE = 100;
     private Personality personality;
+    private RawPersonality rpersonality;
+    private SensorManager sm;
+    protected Sensor accel;
+    protected Sensor als;
+    protected SensorEventListener alsSel;
+    protected SensorEventListener accelSel;
+    protected MapsActivity thiz;
+    private int currentState = -1;
 
 
     @Override
@@ -55,14 +70,9 @@ public class MapsActivity extends FragmentActivity implements LocationListener, 
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+        sm = (SensorManager) getSystemService(SENSOR_SERVICE);
+
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
             return;
         }
 
@@ -77,7 +87,10 @@ public class MapsActivity extends FragmentActivity implements LocationListener, 
         setVisibility(false);
 
         Log.d(TAG,"onCreate");
+        thiz = this;
     }
+
+
 
     protected void setVisibility(boolean visible) {
         if (visible) {
@@ -100,13 +113,6 @@ public class MapsActivity extends FragmentActivity implements LocationListener, 
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
             return;
         }
         mMap.setMyLocationEnabled(true); //checks for current location
@@ -134,32 +140,34 @@ public class MapsActivity extends FragmentActivity implements LocationListener, 
     /** Handler for events from mod device */
     private Handler handler = new Handler() {
         public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case Personality.MSG_MOD_DEVICE:
-                    /** Mod attach/detach */
-                    ModDevice device = personality.getModDevice();
-                    onModDevice(device);
-                    break;
-                case Personality.MSG_RAW_DATA:
-                    /** Mod raw data */
-                    byte[] buff = (byte[]) msg.obj;
-                    int length = msg.arg1;
-                    onRawData(buff, length);
-                    break;
-                case Personality.MSG_RAW_IO_READY:
-                    /** Mod RAW I/O ready to use */
-                    onRawInterfaceReady();
-                    break;
-                case Personality.MSG_RAW_IO_EXCEPTION:
-                    /** Mod RAW I/O exception */
-                    onIOException();
-                    break;
-                case Personality.MSG_RAW_REQUEST_PERMISSION:
-                    /** Request grant RAW_PROTOCOL permission */
-                    onRequestRawPermission();
-                default:
-                    Log.i(Constants.TAG, "MainActivity - Un-handle events: " + msg.what);
-                    break;
+            if(personality != null) {
+                switch (msg.what) {
+                    case Personality.MSG_MOD_DEVICE:
+                        /** Mod attach/detach */
+                        ModDevice device = personality.getModDevice();
+                        onModDevice(device);
+                        break;
+                    case Personality.MSG_RAW_DATA:
+                        /** Mod raw data */
+                        byte[] buff = (byte[]) msg.obj;
+                        int length = msg.arg1;
+                        onRawData(buff, length);
+                        break;
+                    case Personality.MSG_RAW_IO_READY:
+                        /** Mod RAW I/O ready to use */
+                        onRawInterfaceReady();
+                        break;
+                    case Personality.MSG_RAW_IO_EXCEPTION:
+                        /** Mod RAW I/O exception */
+                        onIOException();
+                        break;
+                    case Personality.MSG_RAW_REQUEST_PERMISSION:
+                        /** Request grant RAW_PROTOCOL permission */
+                        onRequestRawPermission();
+                    default:
+                        Log.i(Constants.TAG, "MainActivity - Un-handle events: " + msg.what);
+                        break;
+                }
             }
         }
     };
@@ -171,14 +179,97 @@ public class MapsActivity extends FragmentActivity implements LocationListener, 
         releasePersonality();
     }
 
+
     @Override
     public void onPause() {
         super.onPause();
+        thiz = this;
+        sm.unregisterListener(alsSel);
+        sm.unregisterListener(accelSel);
     }
 
     @Override
     public void onResume() {
         super.onResume();
+
+        SensorEventListener alsSel = new SensorEventListener() {
+            @Override //Code will need more development (but, later...)
+            //Turn signals - left, right
+            public void onSensorChanged(SensorEvent event) {
+                float intensity = event.values[0];
+
+                if(intensity < 10) {
+                    rpersonality.executeRaw(new byte[]{3});
+                }
+
+//                Log.d(TAG,Float.toString(intensity));
+            }
+
+            @Override
+            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+            }
+        };
+
+        SensorEventListener accelSel = new SensorEventListener() {
+            @Override //Code will need more development (but, later...)
+            public void onSensorChanged(SensorEvent event) {
+                int localState = -1;
+                float x = event.values[0];
+                float y = event.values[1];
+                float z = event.values[2];
+
+                float threshold = 1.50f;
+//                float hlst = -0.5f;
+
+                Log.d(TAG,"accelSel");
+
+                if(z < -7.00f){//Phone faces down -- callForHelp function is invoked.
+                    callForHelp();
+                    localState = 3;
+                    Log.d(TAG,"FaceDown");
+
+                }else if(x > threshold){
+                    localState = 1;
+                    rpersonality.executeRaw(new byte[]{1});
+                    Log.d(TAG,"Right");
+                }else if (x < (-1*threshold)){
+                    localState = 2;
+                    rpersonality.executeRaw(new byte[]{2});
+                    Log.d(TAG,"Left");
+                }else{
+                    localState = 0;
+                    rpersonality.executeRaw(new byte[]{0});
+                    Log.d(TAG,"Nothing");
+                }
+
+                if(localState != currentState) {
+                    if (localState == 3) {
+                        callForHelp();
+                        Log.d(TAG, "FaceDown");
+                    } else if (localState == 1) {
+                        rpersonality.executeRaw(new byte[]{1});
+                        Log.d(TAG, "Right");
+                    } else if (localState == 2) {
+                        rpersonality.executeRaw(new byte[]{2});
+                        Log.d(TAG, "Left");
+                    } else {
+                        rpersonality.executeRaw(new byte[]{0});
+                        Log.d(TAG, "Nothing");
+                    }
+                    currentState = localState;
+                }
+
+            }
+
+            @Override
+            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+            }
+        };
+
+        als = sm.getDefaultSensor(Sensor.TYPE_LIGHT);
+        boolean b = sm.registerListener(alsSel, als, 1000000);
+        accel = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        boolean c = sm.registerListener(accelSel, accel, 1000000);
 
         /** Initial MDK Personality interface */
         initPersonality();
@@ -188,7 +279,9 @@ public class MapsActivity extends FragmentActivity implements LocationListener, 
     private void initPersonality() {
         if (null == personality) {
             personality = new RawPersonality(this, Constants.VID_MDK, Constants.PID_TEMPERATURE);
+            rpersonality = (RawPersonality)personality;
             personality.registerListener(handler);
+            rpersonality.executeRaw(new byte[]{1});
         }
     }
 
@@ -208,15 +301,15 @@ public class MapsActivity extends FragmentActivity implements LocationListener, 
             if ((device.getVendorId() == Constants.VID_MDK
                     && device.getProductId() == Constants.PID_TEMPERATURE)
                     || device.getVendorId() == Constants.VID_DEVELOPER) {
-                setVisibility(true);
-//                Log.d(TAG,"setVisibility(true)... Attach?");
+                    setVisibility(true);
+                    Log.d(TAG,"setVisibility(true)... Attach?");
             } else {
-                setVisibility(false);
-//                Log.d(TAG,"setVisibility(false)... Attach?");
+                setVisibility(true);
+                Log.d(TAG,"setVisibility(false)... Attach?");
             }
         } else {
             setVisibility(false);
-//            Log.d(TAG,"setVisibility(false)... device==null");
+            Log.d(TAG,"setVisibility(false)... device==null");
         }
     }
 
@@ -294,6 +387,24 @@ public class MapsActivity extends FragmentActivity implements LocationListener, 
                 // the app cannot work without the permission granted.
             }
         }
+    }
+
+    boolean dialog_active = false;
+    public void callForHelp(){
+            if(!dialog_active) {
+                dialog_active = true;
+                AlertDialog.Builder helpAlert = new AlertDialog.Builder(this);
+                helpAlert.setMessage("Help is on its way.")
+                        .setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                dialog.dismiss();
+                                dialog_active = false;
+                            }
+                        })
+                        .create();
+                helpAlert.show();
+            }
     }
 
     /** Parse the data from mod device */
